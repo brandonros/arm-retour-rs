@@ -80,5 +80,5 @@ impl Hook {
 
   pub fn disable(&self) {
     patch_function_memory((self.ori_fn_address - 1) as *const c_void as *mut u8, &self.ori_fn_bytes);
-  } 
+  }
 }
