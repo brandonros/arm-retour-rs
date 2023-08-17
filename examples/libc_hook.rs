@@ -1,7 +1,7 @@
 #![feature(c_variadic)]
 #![allow(non_camel_case_types)]
 
-use arm_retour::hooks::{self, Hook};
+use arm_retour::hooks::Hook;
 use ctor::ctor;
 use libc::pid_t;
 use minidl::Library;
@@ -49,29 +49,16 @@ unsafe extern "C" fn ptrace_hook(request: c_uint, mut args: ...) -> c_long {
   let parsed_request: __ptrace_request = num::FromPrimitive::from_u32(request).unwrap();
   log::info!("ptrace_hook request = {request:x} parsed_request = {parsed_request:?}");
   // TODO: wait for attach and do special stuff?
-  /*if parsed_request == __ptrace_request::PTRACE_ATTACH {
-      let _ = bugsalot::debugger::wait_until_attached(None);
-      loop {
-          std::thread::sleep(std::time::Duration::from_millis(1000));
-      }
-  }*/
   let pid: pid_t = unsafe { args.arg() }; // TODO: should this be a pointer or not?
   let addr: *mut c_void = unsafe { args.arg() };
   let data: *mut c_void = unsafe { args.arg() };
   log::info!("ptrace_hook request = {request:x} pid = {pid} addr = {addr:p} data = {data:p}");
-  let guard = PTRACE_HOOK_STRUCT.lock().unwrap();
-  let hook_struct = guard.as_ref().unwrap();
-  let ori_fn_address = hook_struct.ori_fn_address;
-  let ori_fn_bytes = hook_struct.ori_fn_bytes.clone();
-  let patch_fn_bytes = hook_struct.patch_fn_bytes.clone();
-  assert_eq!(ori_fn_bytes.len(), patch_fn_bytes.len());
-  drop(guard);
   // Restore the original bytes.
-  hooks::disable_hook(ori_fn_address, &ori_fn_bytes);
+  PTRACE_HOOK_STRUCT.lock().unwrap().as_ref().unwrap().disable();
   // Call original.
   let ret_val = LIBC_PTRACE(request, pid, addr, data);
   // Patch again to point to your hook.
-  hooks::enable_hook(ori_fn_address, &patch_fn_bytes);
+  PTRACE_HOOK_STRUCT.lock().unwrap().as_ref().unwrap().enable();
   log::info!("ptrace_hook request = {request:x} parsed_request = {parsed_request:?} pid = {pid} addr = {addr:p} data = {data:p} ret_val = {ret_val}");
   // TODO: restore stack/registers/state?
   return ret_val;
@@ -81,8 +68,8 @@ fn patch_libc_ptrace() {
   let ori_fn_address = *LIBC_PTRACE as *const c_void;
   let hook_fn_address = ptrace_hook as *const c_void;
   let ori_fn_bytes_length = 10; // TODO: do not need this dynamically?
-  let hook = hooks::build_hook(ori_fn_address, hook_fn_address, ori_fn_bytes_length);
-  hooks::enable_hook(hook.ori_fn_address, &hook.patch_fn_bytes);
+  let hook = Hook::new(ori_fn_address, hook_fn_address, ori_fn_bytes_length);
+  hook.enable();
   PTRACE_HOOK_STRUCT.lock().unwrap().replace(hook);
 }
 
