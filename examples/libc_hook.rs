@@ -2,6 +2,7 @@
 #![allow(non_camel_case_types)]
 
 use arm_retour::hooks::{self, Hook};
+use ctor::ctor;
 use libc::pid_t;
 use minidl::Library;
 use once_cell::sync::Lazy;
@@ -85,6 +86,7 @@ fn patch_libc_ptrace() {
   PTRACE_HOOK_STRUCT.lock().unwrap().replace(hook);
 }
 
-fn main() {
+#[ctor]
+fn ctor() {
   patch_libc_ptrace();
 }

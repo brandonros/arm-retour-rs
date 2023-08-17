@@ -12,3 +12,8 @@ once_cell = "1.18.0"
 num = "0.4"
 num-derive = "0.3"
 num-traits = "0.2"
+ctor = "0.2.4"
+
+[[example]]
+name = "libc_hook"
+crate-type = ["cdylib"]
